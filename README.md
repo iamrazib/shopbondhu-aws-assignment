@@ -34,7 +34,7 @@ flowchart TB
 
 | Resource | Name | CIDR/ID | Notes |
 |---|---|---|---|
-| AWS Region | REPLACE_ME | e.g. ap-southeast-1 | Same Region for all resources |
+| AWS Region | Asia Pacific (Mumbai) | e.g. ap-southeast-1 | Same Region for all resources |
 | VPC | shopbondhu-vpc | 10.0.0.0/16; `vpc-042019d9cee04ad57` | Custom VPC; not default |
 | Public subnet | shopbondhu-public-subnet | 10.0.1.0/24; `subnet-01b789642b680da75` | Auto-assign public IPv4 on |
 | Private subnet | shopbondhu-private-subnet | 10.0.2.0/24; `subnet-0a10dd9915f94b5b1` | No auto-assign public IP |
@@ -209,7 +209,8 @@ The private server has no directly reachable public IPv4 address, its subnet has
 
 # Cleanup
 
-**Complete all verification and evidence captures before this step.** NAT Gateway incurs hourly and data processing charges; public IPv4 addresses also have charges. Deleting NAT Gateway **does not** automatically release its EIP.
+After completing the assignment and capturing all required screenshots, I deleted the `shopbondhu-nat` NAT Gateway and released its associated Elastic IP address. This was important for AWS cost management because NAT Gateways incur hourly charges and additional data processing charges based on the traffic they handle. AWS also charges for allocated public IPv4 addresses, including Elastic IP addresses. Keeping these resources after completing the assignment would result in unnecessary expenses. Deleting the NAT Gateway and releasing the Elastic IP helped prevent further charges for unused infrastructure and demonstrated the importance of resource cleanup and cost optimisation in cloud computing.
+
 
 1. VPC → NAT Gateways → `shopbondhu-nat` → Actions → Delete NAT Gateway → confirm. Capture proof after its state becomes **Deleted**.
 2. VPC / EC2 → Elastic IP addresses → select the former NAT EIP → Actions → Release Elastic IP address. Capture the post-release Elastic IP list (or an allocation-ID filter with no match).
