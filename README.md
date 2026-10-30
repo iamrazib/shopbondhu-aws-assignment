@@ -207,3 +207,28 @@ The private server has no directly reachable public IPv4 address, its subnet has
 5. **Outbound SG/NACL or DNS blocks traffic.** Check backend outbound TCP 80 and 443 and DNS, subnet NACL return traffic rules, and VPC DNS resolution. Run `getent hosts archive.ubuntu.com`, `curl -I https://www.google.com`, and `curl -4 https://checkip.amazonaws.com` to distinguish name-resolution from connection problems.
 
 
+# Cleanup
+
+**Complete all verification and evidence captures before this step.** NAT Gateway incurs hourly and data processing charges; public IPv4 addresses also have charges. Deleting NAT Gateway **does not** automatically release its EIP.
+
+1. VPC → NAT Gateways → `shopbondhu-nat` → Actions → Delete NAT Gateway → confirm. Capture proof after its state becomes **Deleted**.
+2. VPC / EC2 → Elastic IP addresses → select the former NAT EIP → Actions → Release Elastic IP address. Capture the post-release Elastic IP list (or an allocation-ID filter with no match).
+3. The private route `0.0.0.0/0 → NAT` may become a **blackhole**. Remove or update it after documenting the functional NAT test; after NAT deletion, private outbound internet access no longer works.
+4. When the whole assignment is finished and its site need not remain available, terminate both EC2 instances and remove other unused resources to avoid further charges. Keep your screenshots and repository history as evidence.
+
+![Deleted NAT Gateway evidence](screenshots/14-nat-deleted.png)
+
+![Released Elastic IP evidence](screenshots/15-eip-released.png)
+
+**Cleanup performed on:** `Friday, 30 October 2026 at 23:09:39 GMT+6`  
+**NAT Gateway final status:** `Deleted`  
+**Former Elastic IP allocation ID:** `eipalloc-037a6a15f7ee79cee`  
+**Elastic IP released:** `released`
+
+# What I Learned
+
+- A custom VPC lets me control the address space, subnet boundaries, and traffic routes instead of using AWS default networking.
+- A public subnet needs an IGW route, and its EC2 instance also needs a public IP and the correct security-group rules to serve internet users.
+- A NAT Gateway permits outbound package updates from a private instance without exposing that instance to unsolicited connections from the internet.
+- Referring to the web security group in the backend security group is more maintainable than allowing SSH from every source.
+- Keeping screenshots, terminal commands, Git history, and cleanup evidence makes an infrastructure assignment reproducible and auditable.

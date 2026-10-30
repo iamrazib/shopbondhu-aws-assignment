@@ -92,3 +92,27 @@ curl -4 https://checkip.amazonaws.com
 ```powershell
 Test-NetConnection -ComputerName 10.0.2.93 -Port 22
 
+## 9. Git — commit history and GitHub push 
+
+```powershell
+# At milestone 1: frontend source and .gitignore
+git init -b main
+git add frontend .gitignore
+git commit -m "feat: create ShopBondhu responsive landing page"
+
+# At milestone 2: network setup and documentation
+git add README.md commands.md screenshots
+git commit -m "docs: document custom AWS VPC, subnets and routes"
+
+# At milestone 3: tested deployment and screenshots
+git add README.md commands.md screenshots
+git commit -m "docs: verify Nginx deployment and backend NAT tests"
+
+# At milestone 4: remove billable NAT resources, document final cleanup
+git add README.md commands.md screenshots
+git commit -m "docs: record NAT Gateway deletion and EIP release"
+
+git log --oneline
+git remote add origin https://github.com/iamrazib/shopbondhu-aws-assignment.git
+git push -u origin main
+```
