@@ -1,0 +1,16 @@
+# Never commit SSH private keys or cloud credentials.
+*.pem
+*.ppk
+*.key
+*.p12
+*.pfx
+.env
+.env.*
+!.env.example
+.aws/
+credentials
+secrets/
+**/id_rsa
+**/id_ed25519
+.DS_Store
+Thumbs.db
