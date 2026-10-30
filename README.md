@@ -98,3 +98,112 @@ Launch `shopbondhu-web` with Ubuntu, t2.micro/t3.micro (subject to availability)
 
 ![Backend security group ingress](screenshots/08-backend-security-group.png)
 
+# Nginx & Frontend Deployment
+
+## Task 7: Install and verify Nginx on public EC2
+
+From a PowerShell terminal on Windows:
+
+```powershell
+ssh -i "$HOME\.ssh\shopbondhu-key.pem" ubuntu@13.201.86.168
+```
+
+On `shopbondhu-web` (Ubuntu shell):
+
+```bash
+sudo apt update
+sudo apt install -y nginx curl
+sudo systemctl start nginx
+sudo systemctl enable nginx
+sudo nginx -t
+sudo systemctl status nginx --no-pager
+curl -I http://localhost
+```
+
+Browse to `http://13.201.86.168` and confirm the **default Nginx welcome page** appears.
+
+![Nginx active and enabled](screenshots/09-nginx-status.png)
+
+![Default Nginx page before deployment](screenshots/09-nginx-default-browser.png)
+
+## Task 8: Deploy ShopBondhu static frontend
+
+On Windows laptop, in the **repository root**, run:
+
+```powershell
+scp -i "$HOME\.ssh\shopbondhu-key.pem" -r .\frontend ubuntu@13.201.86.168:/home/ubuntu/shopbondhu-frontend
+```
+
+Return to the **Ubuntu shell on shopbondhu-web**:
+
+```bash
+sudo rm -f /var/www/html/index.nginx-debian.html
+sudo cp -a /home/ubuntu/shopbondhu-frontend/. /var/www/html/
+sudo nginx -t
+sudo systemctl reload nginx
+ls -lah /var/www/html
+curl -I http://localhost
+```
+
+Browse to `http://13.201.86.168`. The ShopBondhu landing page must load. The address bar should show the public IP. Static resources live under `/var/www/html/css/` and `/var/www/html/js/`.
+
+![ShopBondhu landing page at the server public IPv4 address](screenshots/10-website-browser.png)
+
+# NAT Gateway Test
+
+## Task 9: Access the private EC2 through the public EC2 bastion
+
+```powershell
+Set-Service ssh-agent -StartupType Manual
+Start-Service ssh-agent
+ssh-add "$HOME\.ssh\shopbondhu-key.pem"
+ssh -i "$HOME\.ssh\shopbondhu-key.pem" -J ubuntu@13.201.86.168 ubuntu@10.0.2.93
+```
+
+With `-J`, the explicit `-i` is primarily applied to the destination, so loading the key into the local SSH agent also allows authentication to the jump host. This authenticates to the backend through the public EC2 without placing the private key on the bastion. If both instances use the same EC2 key pair, you may instead use **temporary SSH agent forwarding** and, while logged into the public EC2, run `ssh ubuntu@10.0.2.93`. 
+
+On `shopbondhu-backend`:
+
+```bash
+hostname
+hostname -I
+sudo apt update
+curl -I https://www.google.com
+curl -4 https://checkip.amazonaws.com
+```
+
+The expected result is that Ubuntu package repositories and HTTPS requests respond successfully, while `checkip.amazonaws.com` shows the **NAT Elastic IP**. The last value must be verified against your actual Elastic IP, not assumed.
+
+![Backend apt update succeeds](screenshots/11-backend-apt-update.png)
+
+![Backend curl success and NAT egress public IP](screenshots/12-backend-curl.png)
+
+From the laptop, attempt SSH to the **private** IPv4 without a bastion or VPN:
+
+```powershell
+Test-NetConnection -ComputerName 10.0.2.93 -Port 22
+```
+
+The private server has no directly reachable public IPv4 address, its subnet has no route to an Internet Gateway for inbound internet traffic, and its security group authorizes SSH only from `shopbondhu-web-sg`. Thus direct access over the public internet does not work. A failed ping is less conclusive by itself because ICMP is also not allowed by the configured security group.
+
+![Direct backend connection attempt from laptop](screenshots/13-direct-backend-test.png)
+
+# Troubleshooting Answers
+
+## Task 10 — Problem A: Website inaccessible although SSH works
+
+1. **TCP port 80 is missing from the web security group.** In EC2 → Security Groups → `shopbondhu-web-sg` → Inbound rules, verify HTTP TCP 80 from `0.0.0.0/0`.
+2. **Nginx is stopped, failed, or not listening.** On the web EC2 run `sudo systemctl status nginx --no-pager`, `sudo nginx -t`, `sudo ss -ltnp | grep ':80'`, and `curl -I http://localhost`. Start or fix Nginx if needed.
+3. **Frontend files or Nginx document root are incorrect.** Run `ls -lah /var/www/html/` and check that `index.html`, `css/`, and `js/` are present. Inspect `sudo nginx -T` and `/var/log/nginx/error.log` if the server serves a different page or responds with errors.
+4. **Wrong URL, public IPv4 address, or public routing.** Check the instance's current public IP in the EC2 details, try `http://13.201.86.168` (not HTTPS for this HTTP-only lab), and verify the public route table contains `0.0.0.0/0 → IGW` and is associated with the web subnet. Note that SSH working from the internet makes a totally missing IGW route less likely.
+5. **Network ACL or OS firewall blocks port 80.** Inspect the subnet NACL for inbound TCP 80 and return traffic; if UFW is enabled, run `sudo ufw status` and verify HTTP is permitted.
+
+## Task 10 — Problem B: `sudo apt update` on backend hangs or times out
+
+1. **NAT Gateway is missing, unavailable, or in the wrong subnet.** In VPC → NAT Gateways, verify state `Available`, Connectivity `Public`, Availability Mode `Zonal`, and subnet `shopbondhu-public-subnet`. A NAT in the private subnet cannot provide the intended internet egress.
+2. **Elastic IP is not associated with the public NAT Gateway.** Check the NAT Gateway Details and Elastic IP Allocation ID. A Zonal public NAT requires a public EIP for internet traffic.
+3. **Private route table has no correct default route or association.** Verify the backend's subnet is associated with `shopbondhu-private-rt` and that `0.0.0.0/0` targets `shopbondhu-nat` in active state, in addition to the VPC-local route.
+4. **NAT public subnet does not route to IGW.** Verify `shopbondhu-public-rt` is associated with the NAT subnet, and has `0.0.0.0/0 → shopbondhu-igw` with the IGW attached to the VPC.
+5. **Outbound SG/NACL or DNS blocks traffic.** Check backend outbound TCP 80 and 443 and DNS, subnet NACL return traffic rules, and VPC DNS resolution. Run `getent hosts archive.ubuntu.com`, `curl -I https://www.google.com`, and `curl -4 https://checkip.amazonaws.com` to distinguish name-resolution from connection problems.
+
+
